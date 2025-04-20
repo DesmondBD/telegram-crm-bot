@@ -13,6 +13,10 @@ from uuid import uuid4
 import os
 from dotenv import load_dotenv
 load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+print("DEBUG | BOT_TOKEN:", os.getenv("BOT_TOKEN"))
+print("DEBUG | GROUP_ID:", os.getenv("GROUP_ID"))
+print("DEBUG | DATABASE_URL:", DATABASE_URL)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID"))
 
