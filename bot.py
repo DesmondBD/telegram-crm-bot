@@ -14,7 +14,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-GROUP_ID = -1002526115832
+GROUP_ID = int(os.getenv("GROUP_ID"))
 
 LANGS = {
     'ru': {
