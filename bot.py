@@ -1,3 +1,4 @@
+from db import add_order, update_status as db_update_status, add_order_update
 import asyncio
 import logging
 from datetime import datetime
@@ -9,7 +10,10 @@ from aiogram.client.default import DefaultBotProperties
 from uuid import uuid4
 
 # === Настройки ===
-BOT_TOKEN = "7909440129:AAEBPXGVANRl5eCOfI2U42vPrnlNZsBfjVQ"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROUP_ID = -1002526115832
 
 LANGS = {
@@ -156,6 +160,7 @@ async def collect(message: types.Message):
 
         req_id = str(uuid4())
         state["req_id"] = req_id
+        add_order(state)
         state["status"] = "новая"
         caption = render_request(state)
 
@@ -236,6 +241,8 @@ async def callbacks(call: types.CallbackQuery):
                     text=new_text,
                     reply_markup=status_buttons(req_id)
                 )
+            db_update_status(req_id, str(new_status))
+            add_order_update(order_id=req_id, update_type=str(new_status))
             await call.answer("Статус обновлён")
         except Exception as e:
             logging.exception(e)
