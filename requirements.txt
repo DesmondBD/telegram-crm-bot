@@ -1,2 +1,5 @@
 aiogram
 python-dotenv
+psycopg2-binary
+SQLAlchemy
+asyncpg
