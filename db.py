@@ -1,176 +1,107 @@
 from datetime import datetime
+from sqlalchemy import create_engine, Column, String, Text, Integer, ForeignKey, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
 import os
-import sqlite3
 
-class DB:
-    def __init__(self, db_path="db/orders.db"):
-        self.db_path = db_path
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-    def get_orders_by_status(self, status: str):
-        conn = sqlite3.connect(self.db_path)
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM orders WHERE status = ?", (status,))
-        results = cur.fetchall()
-        conn.close()
-        return results
+Base = declarative_base()
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
 
-    def update_comment(self, order_id: str, comment: str):
-        print(f"Updating comment for order_id: {order_id}")  # Debug log
-        conn = sqlite3.connect(self.db_path)
-        cur = conn.cursor()
-        cur.execute("UPDATE orders SET comment = ? WHERE id = ?", (comment, order_id))
-        conn.commit()
-        conn.close()
+class Order(Base):
+    __tablename__ = "orders"
 
-    def update_media(self, order_id: str, file_id: str):
-        print(f"Updating media for order_id: {order_id}")  # Debug log
-        conn = sqlite3.connect(self.db_path)
-        cur = conn.cursor()
-        cur.execute("UPDATE orders SET media = ? WHERE id = ?", (file_id, order_id))
-        conn.commit()
-        conn.close()
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String)
+    phone = Column(String)
+    address = Column(String)
+    description = Column(Text)
+    status = Column(String)
+    media = Column(Text, nullable=True)
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    def update_status(self, order_id: str, status: str):
-        print(f"Updating status for order_id: {order_id} to status: {status}")  # Debug log
-        conn = sqlite3.connect(self.db_path)
-        cur = conn.cursor()
-        cur.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
-        conn.commit()
-        conn.close()
+    updates = relationship("OrderUpdate", back_populates="order")
 
-    def clean_invalid_media(self):
-        conn = sqlite3.connect(self.db_path)
-        cur = conn.cursor()
-        cur.execute("UPDATE orders SET media = NULL WHERE media IS NOT NULL AND LENGTH(media) < 20")
-        conn.commit()
-        conn.close()
+class OrderUpdate(Base):
+    __tablename__ = "order_updates"
 
-DB_PATH = "db/orders.db"
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(String, ForeignKey("orders.id"))
+    update_type = Column(String)
+    media = Column(Text, nullable=True)
+    comment = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    order = relationship("Order", back_populates="updates")
 
 def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS orders (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        phone TEXT,
-        address TEXT,
-        description TEXT,
-        status TEXT,
-        media TEXT,
-        comment TEXT,
-        created_at TEXT
-    )
-    """)
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS order_updates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_id TEXT,
-        update_type TEXT,
-        media TEXT,
-        comment TEXT,
-        timestamp TEXT,
-        FOREIGN KEY(order_id) REFERENCES orders(id)
-    )
-    """)
-    conn.commit()
-    conn.close()
+    Base.metadata.create_all(bind=engine)
 
-def add_order(order_data: dict):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    # Проверка на существование
-    cur.execute("SELECT id FROM orders WHERE id = ?", (order_data["id"],))
-    if cur.fetchone():
-        print(f"🔁 Заказ уже существует: {order_data['id']}")
-        conn.close()
+def add_order(data: dict):
+    session = SessionLocal()
+    if session.query(Order).filter_by(id=data["id"]).first():
+        print(f"🔁 Заказ уже существует: {data['id']}")
+        session.close()
         return
-    # Добавление нового заказа
-    cur.execute("""
-        INSERT INTO orders (id, name, phone, address, description, status, media, comment, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        order_data["id"],
-        order_data["name"],
-        order_data["phone"],
-        order_data["address"],
-        order_data["description"],
-        order_data.get("status", "новая"),
-        order_data.get("media"),
-        "",
-        datetime.now().isoformat()
-    ))
-    conn.commit()
-    conn.close()
+
+    new_order = Order(
+        id=data["id"],
+        name=data["name"],
+        phone=data["phone"],
+        address=data["address"],
+        description=data["description"],
+        status=data.get("status", "новая"),
+        media=data.get("media"),
+    )
+    session.add(new_order)
+    session.commit()
+    session.close()
 
 def update_status(order_id: str, status: str):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
-    conn.commit()
-    conn.close()
-
-def get_order_by_id(order_id: str):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
-    result = cur.fetchone()
-    conn.close()
-    return result
+    session = SessionLocal()
+    order = session.query(Order).filter_by(id=order_id).first()
+    if order:
+        order.status = status
+        session.commit()
+    session.close()
 
 def add_order_update(order_id: str, update_type: str, media: str = None, comment: str = None):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO order_updates (order_id, update_type, media, comment, timestamp)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        order_id,
-        update_type,
-        media,
-        comment,
-        datetime.now().isoformat()
-    ))
-    conn.commit()
-    conn.close()
-
-def get_updates_by_order_id(order_id: str):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT update_type, media, comment, timestamp
-        FROM order_updates
-        WHERE order_id = ?
-        ORDER BY timestamp ASC
-    """, (order_id,))
-    results = cur.fetchall()
-    conn.close()
-    return results
+    session = SessionLocal()
+    update = OrderUpdate(
+        order_id=order_id,
+        update_type=update_type,
+        media=media,
+        comment=comment
+    )
+    session.add(update)
+    session.commit()
+    session.close()
 
 def get_order(order_id: str):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT id, name, phone, address, description, status, media FROM orders WHERE id = ?", (order_id,))
-    row = cur.fetchone()
-    conn.close()
-
-    if row:
+    session = SessionLocal()
+    order = session.query(Order).filter_by(id=order_id).first()
+    session.close()
+    if order:
         return {
-            "id": row[0],
-            "name": row[1],
-            "phone": row[2],
-            "address": row[3],
-            "description": row[4],
-            "status": row[5],
-            "media": row[6]
+            "id": order.id,
+            "name": order.name,
+            "phone": order.phone,
+            "address": order.address,
+            "description": order.description,
+            "status": order.status,
+            "media": order.media
         }
     return None
 
+def get_updates_by_order_id(order_id: str):
+    session = SessionLocal()
+    updates = session.query(OrderUpdate).filter_by(order_id=order_id).order_by(OrderUpdate.timestamp).all()
+    session.close()
+    return [(u.update_type, u.media, u.comment, u.timestamp) for u in updates]
+
 if __name__ == "__main__":
     init_db()
-    print("✅ База данных создана и готова к работе.")
-    db = DB()
-    db.clean_invalid_media()
-    print("🧹 Проблемные media удалены.")
+    print("✅ База PostgreSQL и таблицы инициализированы.")
