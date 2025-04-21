@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 from datetime import datetime
 from sqlalchemy import create_engine, Column, String, Text, Integer, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
@@ -5,6 +7,8 @@ from sqlalchemy.orm import sessionmaker, relationship
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL переменная окружения не найдена. Укажите её в .env или Railway Variables.")
 
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)

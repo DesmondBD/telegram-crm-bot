@@ -14,6 +14,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL не найден! Проверь .env файл")
 print("DEBUG | BOT_TOKEN:", os.getenv("BOT_TOKEN"))
 print("DEBUG | GROUP_ID:", os.getenv("GROUP_ID"))
 print("DEBUG | DATABASE_URL:", DATABASE_URL)
@@ -98,6 +100,11 @@ async def start(message: types.Message):
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
         [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang:en")]
     ])
+    await message.answer_photo(
+        photo="https://telegra.ph/file/9361C60E6BC640579CC160.png",  # твой логотип
+        caption="Добро пожаловать в <b>Chicago Handyman Services</b>! 👷‍♂️🔧",
+        parse_mode=ParseMode.HTML
+    )
     await message.answer("🌐 Выберите язык / Choose your language:", reply_markup=keyboard)
 
 @dp.callback_query(F.data.startswith("lang:"))
@@ -142,11 +149,11 @@ async def collect(message: types.Message):
         media = []
         if message.media_group_id:
             media_groups.setdefault(message.media_group_id, []).append(message)
-            await asyncio.sleep(1.5)
-            if message != media_groups[message.media_group_id][-1]:
+            await asyncio.sleep(2)
+            messages = media_groups.pop(message.media_group_id)
+            if message != messages[-1]:
                 return
 
-            messages = media_groups.pop(message.media_group_id)
             for msg in messages:
                 if msg.photo:
                     media.append(InputMediaPhoto(media=msg.photo[-1].file_id))
