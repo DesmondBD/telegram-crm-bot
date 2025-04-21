@@ -101,8 +101,8 @@ async def start(message: types.Message):
         [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang:en")]
     ])
     await message.answer_photo(
-        photo="https://telegra.ph/file/9361C60E6BC640579CC160.png",  # твой логотип
-        caption="Добро пожаловать в <b>Chicago Handyman Services</b>! 👷‍♂️🔧",
+        photo="https://telegra.ph/file/YOUR_IMAGE_ID_HERE.png",  # замените на свою ссылку
+        caption="Добро пожаловать в <b>Chicago Handyman Services</b>! 👷‍♂️🔧\n\nОставьте заявку — и мы свяжемся с вами в ближайшее время!",
         parse_mode=ParseMode.HTML
     )
     await message.answer("🌐 Выберите язык / Choose your language:", reply_markup=keyboard)
